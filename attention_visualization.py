@@ -60,6 +60,7 @@ f.close()
 len_data = len(dataset)
 with h5py.File(dir_order_test, 'r') as hf:
     test_order = hf['order'][:]
+    #print(test_order)
 
 # pre-trained models
 att_model = torch.load('model/AV_att.pt')
@@ -70,17 +71,21 @@ att_layer = att_model._modules.get('affine_h') # extract attention maps from the
 AVEData = AVEDataset(video_dir=dir_video, audio_dir=dir_audio, label_dir=dir_labels,
                      order_dir=dir_order_test, batch_size=402)
 nb_batch = AVEData.__len__()
-print(nb_batch)
+print(nb_batch) #402
 audio_inputs, video_inputs, labels = AVEData.get_batch(0)
 audio_inputs = Variable(audio_inputs.cuda(), requires_grad=False)
 video_inputs = Variable(video_inputs.cuda(), requires_grad=False)
+print(video_inputs.shape) #(402,10,7,7,512)
 labels = labels.numpy()
+print(labels.shape) #(402,10,29)
 
 # generate attention maps
 att_map = torch.zeros((4020, 49, 1))
+
 def fun(m, i, o): att_map.copy_(o.data)
 map = att_layer.register_forward_hook(fun)
 h_x = att_model(audio_inputs, video_inputs)
+print(h_x.shape) #(402,10,29)
 map.remove()
 z_t = Variable(att_map.squeeze( 2 ))
 alpha_t = F.softmax( z_t, dim = -1 ).view( z_t.size( 0 ), -1, z_t.size( 1 ) )
@@ -94,34 +99,46 @@ save_dir = "visual_att/attention_maps/" # store attention maps
 original_dir = "visual_att/original/"   # store video frames
 
 for num in range(len(test_order)):
-    print(num)
+    print("num=",num) 
+    #print(len(test_order)) #402
+    #print(test_order)
     data = dataset[test_order[num]]
     x = data.split("&")
+    print(x)
     
     # extract video frames
     video_index = os.path.join(raw_video_dir, x[1] + '.mp4')
     vid = imageio.get_reader(video_index, 'ffmpeg')
-    vid_len = len(vid)
-    frame_interval = int(vid_len / t)
-  
-    frame_num = video_frame_sample(frame_interval, t, sample_num)
+    #vid_len = len(vid)
+    #print(vid_len)
+    #frame_interval = int(vid_len / t)
+    #print(frame_interval)
     imgs = []
     for i, im in enumerate(vid):
-        
         x_im = cv2.resize(im, (224, 224))
         imgs.append(x_im)
+    print("imgs =",len(imgs))
+
+    frame_interval = int(len(imgs) / t)
+    frame_num = video_frame_sample(frame_interval, t, sample_num)
+    #print(len(frame_num)) #160
     vid.close()
     cc = 0
     for n in frame_num:
+        #print(imgs[160])
+        #print(n)
         extract_frames[cc, :, :, :] = imgs[n]
         cc += 1
-    
+
+    print(extract_frames.shape) #(160,224,224,3)
     # process generated attention maps
     att = att_weight[num, :, :, :]
     att = normlize(att, 0, 255)
+    print(att.shape) #10,7,7
     att_scaled = np.zeros((10, 224, 224))
     for k in range(att.shape[0]):
-        att_scaled[k, :, :] = cv2.resize(att[k, :, :], (224, 224)) # scaling attention maps 
+        att_scaled[k, :, :] = cv2.resize(att[k, :, :], (224, 224)) # scaling attention maps
+        
   
     att_t = np.repeat(att_scaled, 16, axis = 0) # 1-sec segment only has 1 attention map. Here, repeat 16 times to generate 16 maps for a 1-sec video
     heat_maps = np.repeat(att_t.reshape(160, 224, 224, 1), 3, axis = -1)

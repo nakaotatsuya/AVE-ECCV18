@@ -4,7 +4,7 @@
 
 from __future__ import print_function
 import os
-os.environ["CUDA_VISIBLE_DEVICES"] = "0" # GPU ID
+os.environ["CUDA_VISIBLE_DEVICES"] = "0,1,2,3" # GPU ID
 import torch
 import torch.nn as nn
 import numpy as np
@@ -72,9 +72,14 @@ def compute_acc(labels, x_labels, nb_batch):
     real_labels = np.zeros(N)
     c = 0
     for i in range(nb_batch):
-        for j in range(x_labels.shape[1]): 
+        for j in range(x_labels.shape[1]):
+            #print("nb_batch=", nb_batch)
+            #print(x_labels.shape)
+            #print(pre_labels.shape)
             pre_labels[c] = np.argmax(x_labels[i, j, :])
             real_labels[c] = np.argmax(labels[i, j, :])
+            print(pre_labels[c])
+            print(real_labels[c])
             c += 1
     target_names = []
     for i in range(29):
@@ -90,6 +95,7 @@ def train(args):
     epoch_l = []
     best_val_acc = 0
     for epoch in range(args.nb_epoch):
+        net_model.train()
         epoch_loss = 0
         n = 0
         start = time.time()
@@ -138,8 +144,8 @@ def test(args):
 
     model = torch.load('model/' + model_name  + ".pt")
     model.eval()
-    AVEData = AVEDataset(video_dir=args.dir_video, audio_dir=args.dir_audio, label_dir=args.dir_labels,
-                         order_dir=args.dir_order_test, batch_size=402)
+    AVEData = AVEDataset(video_dir=args.dir_video, audio_dir=args.dir_audio, label_dir=args.dir_labels, order_dir=args.dir_order_test, batch_size=402)
+    #AVEData = Dataset(video_dir=args.dir_video, audio_dir=args.dir_audio, label_dir=args.dir_labels, order_dir=args.dir_order_test, batch_size=2)
     nb_batch = AVEData.__len__()
     audio_inputs, video_inputs, labels = AVEData.get_batch(0)
     audio_inputs = Variable(audio_inputs.cuda(), requires_grad=False)
@@ -147,6 +153,8 @@ def test(args):
     labels = labels.numpy()
     x_labels = model(audio_inputs, video_inputs)
     x_labels = x_labels.cpu().data.numpy()
+    #print(x_labels)
+    #print(labels)
     acc = compute_acc(labels, x_labels, nb_batch)
     print(acc)
     return acc

@@ -1,0 +1,14 @@
+data/
+test/
+visual_att/
+feature_extractor/audio/
+feature_extractor/picture/
+feature_extractor/video/
+feature_extractor/vggish_model.ckpt
+model/DMRN.pt
+feature_extractor/pict_cnn_feature.h5
+feature_extractor/audio_embedding.h5
+feature_extractor/labels/
+feature_extractor/original_video/
+feature_extractor/original_audio/
+feature_extractor/video_cnn_feature.h5
